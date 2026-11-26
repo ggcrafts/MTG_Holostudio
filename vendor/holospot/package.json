@@ -1,0 +1,59 @@
+{
+  "name": "holospot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The holographic materials of holo.spot for your own three.js scenes: spectral diffraction foils, glitter, kinetic spirals and volume holograms, drawn by the same engine as the site.",
+  "license": "MIT",
+  "homepage": "https://www.holo.spot",
+  "main": "./dist/holo.js",
+  "module": "./dist/holo.js",
+  "types": "./dist/holo.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/holo.d.ts",
+      "import": "./dist/holo.js"
+    },
+    "./dist/*": "./dist/*",
+    "./assets/*": "./assets/*",
+    "./presets/*": "./presets/*",
+    "./schema/*": "./schema/*"
+  },
+  "files": [
+    "dist",
+    "assets",
+    "docs",
+    "recipes",
+    "presets",
+    "schema",
+    "AGENTS.md",
+    "README.md",
+    "LICENSE",
+    "!docs/img"
+  ],
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "build": "vite build && node tools/build-meta.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"tests/**/*.test.mjs\" \"tests/**/*.test.ts\"",
+    "dev": "vite",
+    "shot": "node tools/shot.mjs",
+    "video": "node tools/render-video.mjs",
+    "parity": "node tools/parity.mjs",
+    "bake": "node tools/bake-hologram.mjs",
+    "compare": "node tools/compare.mjs"
+  },
+  "peerDependencies": {
+    "three": ">=0.170.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "@types/three": "0.187.0",
+    "puppeteer-core": "25.16.0",
+    "three": "0.187.0",
+    "typescript": "7.0.2",
+    "vite": "8.3.6"
+  }
+}

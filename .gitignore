@@ -1,0 +1,8 @@
+node_modules/
+data/
+output/
+cards/*
+!cards/.gitkeep
+.env
+.DS_Store
+Thumbs.db

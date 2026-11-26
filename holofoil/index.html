@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="pt-BR">
+<meta charset="utf-8">
+<title>MTG HoloStudio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="./style.css">
+<script type="importmap">{ "imports": {
+  "three": "/vendor/three/three.module.js",
+  "holospot": "/vendor/holospot/dist/holo.js"
+} }</script>
+
+<aside id="left">
+  <header><b>MTG HoloStudio</b><span>cartas holofoil · motor holo.spot</span></header>
+
+  <section>
+    <h2>Carta</h2>
+    <div class="combo">
+      <input id="cardName" type="text" placeholder="Nome da carta, em português ou inglês" autocomplete="off" spellcheck="false">
+      <div id="cardSug" class="sug" hidden></div>
+    </div>
+    <div class="row"><select id="cardPrint" disabled><option>Versões: escolha uma carta</option></select></div>
+    <div class="row">
+      <select id="cardLang" title="Idioma das versões listadas"><option value="pt-en">PT e EN</option><option value="pt">Só português</option><option value="en">Só inglês</option><option value="any">Todos os idiomas</option></select>
+      <select id="cardFace" hidden><option value="0">Frente</option><option value="1">Verso</option></select>
+    </div>
+    <div class="row"><button id="cardFile">Abrir imagem…</button><button id="cardLocal">Da pasta cards…</button><input id="cardInput" type="file" accept="image/*" hidden></div>
+    <div class="row"><button id="backFile">Verso: abrir PNG…</button><button id="backReset">Verso padrão</button></div>
+    <div class="row"><label class="chk"><input id="backShow" type="checkbox"> mostrar o verso</label></div>
+    <div id="localList" class="thumbs" hidden></div>
+    <p class="hint" id="cardInfo">Arraste uma imagem de carta para a janela, ou busque pelo nome.</p>
+  </section>
+
+  <section>
+    <h2>Look</h2>
+    <div class="row"><select id="preset"></select><button id="presetLoad">Aplicar</button></div>
+    <div class="row"><label class="chk" title="Ao aplicar um look, troca material, luzes e relevo e mantém os seus ajustes das abas Tinta e foil e Máscara"><input id="presetKeep" type="checkbox"> manter tinta, foil e máscara</label></div>
+    <div class="row"><button id="presetSave" class="grow">Salvar</button><button id="presetDelete">Remover</button></div>
+    <div class="row"><input id="presetName" type="text" placeholder="Nome do look novo"><button id="presetSaveAs">Salvar como</button></div>
+    <div class="row"><button id="blobPaste" title="Cola o JSON do botão </> (Copy settings) do holo.spot">Colar do holo.spot</button><button id="stateCopy">Copiar JSON</button><button id="resetAll">Zerar</button></div>
+  </section>
+
+  <section>
+    <h2>Movimento</h2>
+    <div class="row"><select id="motion"></select><label class="chk"><input id="play" type="checkbox" checked> animar</label></div>
+    <div id="motionCtl"></div>
+  </section>
+
+  <section>
+    <h2>Exportar</h2>
+    <div class="row"><select id="expSize"></select><select id="expBg"><option value="transparent">Fundo transparente</option><option value="bg">Com o fundo</option></select></div>
+    <div class="row"><label>Duração <input id="expDur" type="number" value="4" min="0.5" max="30" step="0.5"> s</label><label>FPS <input id="expFps" type="number" value="30" min="12" max="60" step="1"></label></div>
+    <div class="row"><select id="expFmt"><option value="mov">MOV ProRes 4444 (alpha, After Effects)</option><option value="webm">WebM VP9 (alpha, HyperFrames)</option><option value="mp4">MP4 H.264</option><option value="png">Só a sequência PNG</option></select></div>
+    <div class="row"><button id="expStill">PNG deste quadro</button><button id="expVideo" class="primary">Renderizar clipe</button></div>
+    <p class="hint" id="expInfo"></p>
+  </section>
+</aside>
+
+<main id="stage">
+  <div id="viewport"><canvas id="out"></canvas></div>
+  <div id="bar"><div id="zoom"><button id="zoomOut" title="Afastar">−</button><button id="zoomReset" title="Voltar a 100% e centralizar"><span id="zoomLabel">100%</span></button><button id="zoomIn" title="Aproximar">+</button></div><footer id="status">carregando o holospot…</footer></div>
+</main>
+
+<aside id="right">
+  <nav id="tabs"></nav>
+  <div id="panel"></div>
+</aside>
+
+<script type="module" src="./app.js"></script>
+</html>

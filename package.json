@@ -1,0 +1,13 @@
+{
+  "name": "mtg-holostudio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Gerador de cartas holofoil de Magic: folha holográfica em 3D (motor holo.spot) com a arte impressa por cima, looks editáveis e exportação de PNG e clipes com alpha.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

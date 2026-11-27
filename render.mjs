@@ -55,7 +55,12 @@ async function up() {
     try { return (await fetch(`${BASE}/api/presets`, { signal: AbortSignal.timeout(1500) })).ok; } catch { return false; }
 }
 async function ensureServer() {
-    if (await up()) return null;
+    if (await up()) {
+        // a Studio server started before this update has no automation endpoint
+        const probe = await fetch(`${BASE}/api/automation/result?id=probe`).catch(() => null);
+        if (!probe?.ok) fail(`the Studio running on port ${PORT} is an older version: close the MTG HoloStudio window and open it again (or use --port 4600)`);
+        return null;
+    }
     const child = spawn(process.execPath, [path.join(ROOT, 'server.mjs'), '--no-open'], { cwd: ROOT, env: { ...process.env, HOLOFOIL_PORT: String(PORT) }, stdio: 'ignore' });
     for (let i = 0; i < 40; i++) { await sleep(250); if (await up()) return child; }
     child.kill();

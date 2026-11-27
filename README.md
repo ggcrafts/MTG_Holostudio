@@ -50,6 +50,7 @@ something, that is the whole point. Use it, break it, send looks back. I hope th
 - **Looks you can keep.** Every look stores every parameter. Save, overwrite, remove. Nine base looks ship
   with the Studio: Classic foil, Surge foil, Galaxy foil, Foil on art only, Concentric rainbow,
   Galaxy (glitter), Cracked ice, Dotted, Golden vortex.
+- **Product shots.** A camera that moves in for real: macro on the name, the art, the rules text and the artist credit, a foil pass, pull back and spin, a dramatic fly-over. Line them up like a product film, vertical for shorts or horizontal.
 - **Motion that loops.** Sway, sweep, orbit and a seamless 360° spin that shows your custom back. Rendering is
   deterministic and frame-exact: with the duration equal to the motion period, the clip loops perfectly.
 - **Exports for any pipeline.** 1920 × 1080 PNG, ProRes 4444 MOV with alpha, VP9 WebM with alpha, MP4, or the

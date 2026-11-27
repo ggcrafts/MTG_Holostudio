@@ -79,6 +79,31 @@ The user's own saved looks (from the Studio's Save button) are listed too, and w
 | `--duration <seconds>` `--fps <n>` | clip length, default 4 s at 30 fps |
 | `--zoom <0.2…5>` | camera zoom |
 
+### Product shots (camera)
+
+`--shots '<json>'` turns the clip into a product-style presentation: a list of camera moves, cut one after the
+other. Each item is `{"tipo": <type>, "dur": <seconds>, "zoom": <×, optional>}`. Types:
+
+| tipo | Shot |
+|---|---|
+| `macro-nome` | close on the name bar, sliding along it |
+| `macro-arte` | close on the art, slow push and light sweep |
+| `macro-texto` | close on the rules text, sliding down |
+| `rodape` | close on the artist credit at the bottom |
+| `foil` | whole card tilting hard so the foil catches the light |
+| `afastar-girar` | starts on the art, pulls back and spins 360° |
+| `passeio` | dramatic low fly-over across the art, with a slight roll |
+| `inteira` | whole card, gentle sway |
+| `giro` | whole card, 360° spin |
+
+Set `--duration` to the sum of the `dur` values. The camera really moves in (perspective), so sharpness is limited by
+the card image: Scryfall images hold up to about 2×. `--size 1080x1920` renders vertical frames for shorts and reels.
+
+```bash
+node render.mjs --card "Silverquill Lecturer" --look "Galaxy foil" --size 1080x1920 --duration 7 \
+  --shots '[{"tipo":"macro-nome","dur":1.2},{"tipo":"macro-arte","dur":1.8},{"tipo":"macro-texto","dur":1.5},{"tipo":"afastar-girar","dur":2.5}]'
+```
+
 **Seamless loop:** make `--duration` equal to `--period` (or a whole multiple). Rendering is deterministic,
 frame by frame, so the last frame meets the first.
 

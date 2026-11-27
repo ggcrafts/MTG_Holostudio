@@ -44,6 +44,11 @@ const EN = {
   // movimento
   "Movimento": "Motion", "animar": "animate",
   "Manual (mouse)": "Manual (mouse)", "Balanço": "Sway", "Varredura": "Sweep", "Órbita": "Orbit", "Giro 360°": "360° spin",
+  "Tomadas (câmera)": "Shots (camera)", "Macro no nome": "Macro on the name", "Macro na arte": "Macro on the art", "Macro no texto": "Macro on the text",
+  "Macro no artista": "Macro on the artist", "Passada no foil": "Foil pass", "Afastar e girar": "Pull back and spin", "Passeio dramático": "Dramatic fly-over",
+  "Carta inteira": "Whole card", "Tomada": "Shot", "Duração (s)": "Duration (s)", "Aproximação (×)": "Zoom (×)", "Subir": "Move up", "Tirar": "Remove",
+  "+ Tomada": "+ Shot", "Enviar tomadas de volta": "Send shots back", "Grava estas tomadas (e o look escolhido) de onde o Studio foi aberto": "Saves these shots (and the chosen look) where the Studio was opened from",
+  "tomadas enviadas": "shots sent",
   "Amplitude": "Amplitude", "Período": "Period", "Inclinação base X": "Base tilt X", "Inclinação base Y": "Base tilt Y",
   // exportar
   "Exportar": "Export", "Fundo transparente": "Transparent background", "Com o fundo": "With background",
@@ -105,6 +110,8 @@ const EN = {
 // frases com valores (mensagens de status, rótulos montados)
 const FX = { "sem borda": "borderless", "arte estendida": "extended art", "invertida": "inverted", "sem texto": "textless", "moldura antiga": "old frame", "futurista": "future frame", "só foil": "foil only" };
 const PATTERNS = [
+  [/^(\d+) tomadas · ([\d.]+) s$/, (m) => `${m[1]} shots · ${m[2]} s`],
+  [/^enviar: (.+)$/, (m) => `send: ${m[1]}`],
   [/^(.+) \(base\)$/, (m) => `${tr(m[1])} (base)`],
   [/^Salvar em "(.+)"$/, (m) => `Save to "${tr(m[1])}"`],
   [/^(.+) · qualidade (.+)$/, (m) => `${tr(m[1])} · quality ${m[2]}`],

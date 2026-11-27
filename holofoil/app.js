@@ -17,6 +17,10 @@ const $ = (s) => document.querySelector(s);
 const W_MM = 63, H_MM = 88;
 const MATERIALS = { galaxy: "Galaxy (holográfico pela tonalidade)", surge: "Surge (holográfico em linhas)", prism: "Prism Rainbow (foil clássico)", shatter: "Gold Shatter (gelo rachado)", nebula: "Nebula Glitter (galáxia)", sparkle: "Sky Sparkle (pontilhado)", vortex: "Gilded Vortex (espirais)", volume: "Volume Hologram (imagem 3D)" };
 const SIZES = { "1920x1080": "1920 × 1080" };              // exportação: só o padrão 1920 × 1080
+/** Endereço (do mesmo servidor) para onde as tomadas voltam quando o Studio foi aberto por outra ferramenta */
+const RETORNO = (() => { const r = new URLSearchParams(location.search).get("retorno"); return r && /^\/api\/[\w/-]+(\?[\w=&%.-]*)?$/.test(r) ? r : null; })();
+// tamanhos que só a automação pede (o vídeo vertical dos shorts, por exemplo): não aparecem no menu
+const AUTO_SIZES = { "1080x1920": "1080 × 1920", "1080x1080": "1080 × 1080", "1920x1080": "1920 × 1080" };
 // o que o Studio sempre impõe à cena do holospot (a arte e o fundo são camada do Studio)
 const STUDIO_SCENE = { "card.emboss": "none" };       // padrões do Studio para a cena (o look pode mudar)
 const BASE_SCENE = { "scene.print": "none", "dof.on": false, "card.edgeSilver": false, "card.border": "foil", "scene.background": "black", "display.wideGamut": false };
@@ -92,7 +96,43 @@ const LAYERS = 1;                                       // o Galaxy usa uma folh
 // materiais holográficos do Studio (difração definida por um mapa): Galaxy e Surge. A folha do holospot por baixo é o Prism.
 const isHolo = () => state.material === "galaxy" || state.material === "surge";
 const kitMaterial = () => (isHolo() ? "prism" : state.material);
-const MOTIONS = { manual: "Manual (mouse)", sway: "Balanço", sweep: "Varredura", orbit: "Órbita", flip: "Giro 360°" };
+const MOTIONS = { manual: "Manual (mouse)", sway: "Balanço", sweep: "Varredura", orbit: "Órbita", flip: "Giro 360°", tomadas: "Tomadas (câmera)" };
+
+// ------------------------------------------------------------------ tomadas: a carta apresentada como produto
+// Cada tomada é um movimento de câmera de poucos segundos sobre um ponto da carta (u, v de 0 a 1, a partir do
+// canto de cima à esquerda), com aproximação (zoom) e giro. Em sequência, com corte seco entre elas, viram a
+// apresentação de produto: macro no nome, na arte e no texto, passada no foil, afastar e girar. A câmera chega
+// perto de verdade (com perspectiva); a nitidez vai até onde a imagem da carta aguenta (as do Scryfall: ~2×).
+const lerp = (a, b, p) => a + (b - a) * p;
+const easeIO = (p) => 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, p)));
+const easeOut = (p) => 1 - Math.pow(1 - Math.min(1, Math.max(0, p)), 3);
+const SHOTS = {
+  "macro-nome":    { name: "Macro no nome",        dur: 1.4, zoom: 2.4, f: (p, k) => ({ u: lerp(0.24, 0.62, p), v: 0.075, z: k, rx: 3, ry: lerp(-7, 7, p), rz: 0 }) },
+  "macro-arte":    { name: "Macro na arte",        dur: 1.8, zoom: 2.2, f: (p, k) => ({ u: lerp(0.36, 0.64, p), v: 0.33, z: k * lerp(0.94, 1.08, p), rx: -4, ry: lerp(-10, 8, p), rz: 0 }) },
+  "macro-texto":   { name: "Macro no texto",       dur: 1.6, zoom: 2.0, f: (p, k) => ({ u: 0.5, v: lerp(0.68, 0.84, p), z: k, rx: lerp(6, -2, p), ry: lerp(4, -4, p), rz: 0 }) },
+  "rodape":        { name: "Macro no artista",     dur: 1.4, zoom: 2.6, f: (p, k) => ({ u: lerp(0.2, 0.4, p), v: 0.95, z: k, rx: -6, ry: lerp(-6, 4, p), rz: 0 }) },
+  "foil":          { name: "Passada no foil",      dur: 1.6, zoom: 1.15, f: (p, k) => ({ u: 0.5, v: 0.5, z: k, rx: lerp(-8, 8, p), ry: lerp(-26, 26, p), rz: 0 }) },
+  "afastar-girar": { name: "Afastar e girar",      dur: 2.0, zoom: 2.2, f: (p, k) => { const q = easeOut(p * 1.4); return { u: lerp(0.5, 0.5, q), v: lerp(0.33, 0.5, q), z: lerp(k, 1, q), rx: lerp(-4, 4, p), ry: 360 * easeIO(p), rz: 0 }; } },
+  "passeio":       { name: "Passeio dramático",    dur: 2.4, zoom: 1.8, f: (p, k) => ({ u: lerp(0.3, 0.7, p), v: lerp(0.46, 0.26, p), z: k * lerp(0.9, 1.15, p), rx: lerp(14, 4, p), ry: lerp(-18, -4, p), rz: lerp(-6, 2, p) }) },
+  "inteira":       { name: "Carta inteira",        dur: 1.6, zoom: 1, f: (p, k) => ({ u: 0.5, v: 0.5, z: k, rx: 4 * Math.sin(p * Math.PI * 2 + 0.6), ry: 12 * Math.sin(p * Math.PI * 2), rz: 0 }) },
+  "giro":          { name: "Giro 360°",            dur: 1.6, zoom: 1, f: (p, k) => ({ u: 0.5, v: 0.5, z: k, rx: 4, ry: 360 * easeIO(p), rz: 0 }) },
+};
+const DEFAULT_SHOTS = ["macro-nome", "macro-arte", "macro-texto", "foil", "afastar-girar"].map((tipo) => ({ tipo, dur: SHOTS[tipo].dur, zoom: SHOTS[tipo].zoom }));
+/** Lista de tomadas válida: tipos conhecidos, duração de 0,3 a 12 s, zoom de 0,5 a 4 */
+const cleanShots = (list) => (Array.isArray(list) ? list : []).filter((x) => x && SHOTS[x.tipo]).slice(0, 24).map((x) => ({ tipo: x.tipo, dur: Math.min(12, Math.max(0.3, Number(x.dur) || SHOTS[x.tipo].dur)), zoom: Math.min(4, Math.max(0.5, Number(x.zoom) || SHOTS[x.tipo].zoom)) }));
+const shotsTotal = (list = state.shots) => list.reduce((a, x) => a + x.dur, 0);
+/** Câmera e giro da carta no instante t (repete a sequência em laço; no fim do clipe, para na última pose) */
+function shotPose(t, hold = false) {
+  const list = state.shots, total = shotsTotal(list);
+  if (!list.length || total <= 0) return null;
+  let at = hold ? Math.min(t, total - 1e-4) : ((t % total) + total) % total;
+  for (const x of list) {
+    if (at <= x.dur) return SHOTS[x.tipo].f(easeIO(at / x.dur), x.zoom);
+    at -= x.dur;
+  }
+  const x = list[list.length - 1];
+  return SHOTS[x.tipo].f(1, x.zoom);
+}
 const MOTION = [
   { id: "motion.amp", name: "Amplitude", min: 0, max: 35, step: 0.5, def: 16, unit: "°" },
   { id: "motion.period", name: "Período", min: 1, max: 12, step: 0.1, def: 4, unit: "s" },
@@ -105,7 +145,7 @@ const OWN_DEF = Object.fromEntries(OWN.map((c) => [c.id, c.def]));
 { const q = new URLSearchParams(location.search).get("quality"); if (["low", "medium", "high"].includes(q)) { OWN_DEF["view.quality"] = q; VIEW.find((c) => c.id === "view.quality").def = q; } }
 
 // ------------------------------------------------------------------ estado
-const state = { material: "prism", mat: {}, scene: {}, own: {}, motion: "sway" };
+const state = { material: "prism", mat: {}, scene: {}, own: {}, motion: "sway", shots: structuredClone(DEFAULT_SHOTS) };
 const own = (id) => (id in state.own ? state.own[id] : OWN_DEF[id]);
 const status = (t, err = false) => { const s = $("#status"); s.textContent = t; s.classList.toggle("err", err); };
 
@@ -420,11 +460,31 @@ function pose(t) {
     default: return { rx: bx + A * 0.35 * Math.sin(w * 2 + 0.6), ry: by + A * Math.sin(w) };
   }
 }
+let rigged = false;
+const aimAt = new THREE.Vector3();
+/** Tomadas: a câmera vai até o ponto da carta (perspectiva real) em vez do recorte do zoom da tela */
+function aimCamera(r) {
+  const { w, h } = size();
+  camera.aspect = w / h; camera.fov = own("view.fov"); camera.clearViewOffset();
+  const fit = 0.74;
+  const vh = Math.max(1 / fit, W_MM / H_MM / (fit * camera.aspect));
+  const d0 = vh / 2 / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  card.updateMatrixWorld(true);
+  card.localToWorld(aimAt.set((r.u - 0.5) * (W_MM / H_MM), 0.5 - r.v, 0));
+  camera.position.set(aimAt.x, aimAt.y, d0 / Math.max(0.3, r.z));
+  camera.up.set(Math.sin(THREE.MathUtils.degToRad(-r.rz * 0.4)), Math.cos(THREE.MathUtils.degToRad(-r.rz * 0.4)), 0);
+  camera.lookAt(aimAt);
+  camera.updateProjectionMatrix();
+  rigged = true;
+}
 function draw(t, offline) {
   if (!card) return;
-  const p = pose(t);
+  const shot = state.motion === "tomadas" ? shotPose(t, !!offline) : null;
+  const p = shot ?? pose(t);
   if ($("#backShow").checked) p.ry += 180;                              // "mostrar o verso": meia volta a mais
-  for (const c of cards) c.rotation.set(THREE.MathUtils.degToRad(p.rx), THREE.MathUtils.degToRad(p.ry), 0, "XYZ");
+  for (const c of cards) c.rotation.set(THREE.MathUtils.degToRad(p.rx), THREE.MathUtils.degToRad(p.ry), THREE.MathUtils.degToRad(shot ? shot.rz : 0), "XYZ");
+  if (shot) aimCamera(shot);
+  else if (rigged) { rigged = false; camera.up.set(0, 1, 0); frameCamera(); }
   if (cards.length === 1) {
     card.visible = true;
     scene.updateMatrixWorld(true);
@@ -827,12 +887,13 @@ function fullScene() {
   for (const q of SCENE_PARAMS) { const v = holo.scene[q.id] ?? q.default; if (usable(q) && plain(v)) out[q.id] = portable(v); }
   return out;
 }
-const snapshot = () => ({ v: 1, material: state.material, mat: { ...state.mat, [state.material]: fullMaterial() }, scene: fullScene(), own: Object.fromEntries(OWN.filter((c) => !SESSION.test(c.id)).map((c) => [c.id, own(c.id)])), motion: state.motion });
+const snapshot = () => ({ v: 1, material: state.material, mat: { ...state.mat, [state.material]: fullMaterial() }, scene: fullScene(), own: Object.fromEntries(OWN.filter((c) => !SESSION.test(c.id)).map((c) => [c.id, own(c.id)])), motion: state.motion, shots: structuredClone(state.shots) });
 const SESSION = /^view\.(quality|zoom|panX|panY)$/;      // da máquina e do momento, não do look
 const KEEP = /^(comp|mask)\./;
 function restore(s) {
   state.material = s.material in MATERIALS ? s.material : "prism";
-  state.mat = structuredClone(s.mat ?? {}); state.scene = structuredClone(s.scene ?? {}); const mine = Object.entries(state.own).filter(([k]) => SESSION.test(k)); state.own = structuredClone(s.own ?? {}); state.motion = s.motion ?? state.motion;
+  state.mat = structuredClone(s.mat ?? {}); state.scene = structuredClone(s.scene ?? {}); const mine = Object.entries(state.own).filter(([k]) => SESSION.test(k)); state.own = structuredClone(s.own ?? {}); state.motion = s.motion in MOTIONS ? s.motion : state.motion;
+  if (Array.isArray(s.shots) && s.shots.length) state.shots = cleanShots(s.shots);
   for (const [k, v] of mine) if (!(k in state.own)) state.own[k] = v;      // qualidade e zoom são da máquina e do momento, não do look
   $("#motion").value = state.motion; renderMotion(); applyOwn();
   // o motor só é recriado quando a qualidade ou o modo das luzes muda (recriar a cada look acumula memória de vídeo);
@@ -915,11 +976,50 @@ $("#blobPaste").onclick = async () => {
 // ------------------------------------------------------------------ movimento (UI)
 function renderMotion() {
   const box = $("#motionCtl"); box.innerHTML = "";
+  if (state.motion === "tomadas") return renderShots(box);
   for (const c of MOTION) box.append(ownCtl(c));
+}
+/** Editor das tomadas: tipo, duração e aproximação de cada uma, na ordem do vídeo */
+function renderShots(box) {
+  const changed = () => { $("#expDur").value = shotsTotal().toFixed(1); renderMotion(); };
+  state.shots.forEach((x, i) => {
+    const row = document.createElement("div"); row.className = "row shot";
+    const sel = document.createElement("select");
+    for (const [k, d] of Object.entries(SHOTS)) { const o = document.createElement("option"); o.value = k; o.textContent = d.name; sel.append(o); }
+    sel.value = x.tipo; sel.title = "Tomada";
+    sel.onchange = () => { x.tipo = sel.value; x.zoom = SHOTS[x.tipo].zoom; changed(); };
+    const num = (v, min, max, step, title, set) => { const n = document.createElement("input"); n.type = "number"; n.min = min; n.max = max; n.step = step; n.value = v; n.title = title; n.onchange = () => { set(Number(n.value)); state.shots = cleanShots(state.shots); changed(); }; return n; };
+    const up = document.createElement("button"); up.textContent = "↑"; up.title = "Subir"; up.disabled = i === 0;
+    up.onclick = () => { [state.shots[i - 1], state.shots[i]] = [state.shots[i], state.shots[i - 1]]; changed(); };
+    const rm = document.createElement("button"); rm.textContent = "×"; rm.title = "Tirar"; rm.disabled = state.shots.length < 2;
+    rm.onclick = () => { state.shots.splice(i, 1); changed(); };
+    row.append(sel, num(x.dur, 0.3, 12, 0.1, "Duração (s)", (v) => (x.dur = v)), num(x.zoom, 0.5, 4, 0.1, "Aproximação (×)", (v) => (x.zoom = v)), up, rm);
+    box.append(row);
+  });
+  const foot = document.createElement("div"); foot.className = "row";
+  const add = document.createElement("button"); add.textContent = "+ Tomada";
+  add.onclick = () => { if (state.shots.length < 24) state.shots.push({ tipo: "inteira", dur: SHOTS.inteira.dur, zoom: 1 }); changed(); };
+  const tot = document.createElement("span"); tot.className = "hint"; tot.textContent = `${state.shots.length} tomadas · ${shotsTotal().toFixed(1)} s`;
+  foot.append(add, tot);
+  box.append(foot);
+  // aberto por outra ferramenta com um endereço de retorno (o painel do Combalista): manda as tomadas de volta
+  if (RETORNO) {
+    const send = document.createElement("button"); send.className = "primary"; send.textContent = "Enviar tomadas de volta";
+    send.title = "Grava estas tomadas (e o look escolhido) de onde o Studio foi aberto";
+    send.onclick = async () => {
+      try {
+        const r = await fetch(RETORNO, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ shots: state.shots, look: currentPreset()?.name ?? null }) });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || j.error) throw new Error(j.error || `HTTP ${r.status}`);
+        status(j.message || "tomadas enviadas");
+      } catch (e) { status(`enviar: ${e.message}`, true); }
+    };
+    const r2 = document.createElement("div"); r2.className = "row"; r2.append(send); box.append(r2);
+  }
 }
 for (const [v, l] of Object.entries(MOTIONS)) { const o = document.createElement("option"); o.value = v; o.textContent = l; $("#motion").append(o); }
 $("#motion").value = state.motion;
-$("#motion").onchange = (e) => { state.motion = e.target.value; };
+$("#motion").onchange = (e) => { state.motion = e.target.value; renderMotion(); if (state.motion === "tomadas") $("#expDur").value = shotsTotal().toFixed(1); };
 for (const [v, l] of Object.entries(SIZES)) { const o = document.createElement("option"); o.value = v; o.textContent = l; $("#expSize").append(o); }
 $("#expSize").onchange = resize;
 
@@ -977,6 +1077,19 @@ $("#expVideo").onclick = async () => {
 }
 
 // ------------------------------------------------------------------ automação (window.holostudio e parâmetros na URL)
+/** Tamanho do quadro exportado (a automação pode pedir o vertical dos shorts) */
+function setSize(wh) {
+  if (!AUTO_SIZES[wh]) throw new Error(`size "${wh}" is not supported: ${Object.keys(AUTO_SIZES).join(", ")}`);
+  const sel = $("#expSize");
+  if (![...sel.options].some((o) => o.value === wh)) { const o = document.createElement("option"); o.value = wh; o.textContent = AUTO_SIZES[wh]; sel.append(o); }
+  sel.value = wh; resize();
+}
+function setShots(list) {
+  const clean = cleanShots(typeof list === "string" ? JSON.parse(list) : list);
+  if (!clean.length) throw new Error(`no valid shots. Types: ${Object.keys(SHOTS).join(", ")}`);
+  state.shots = clean; state.motion = "tomadas"; $("#motion").value = "tomadas"; renderMotion();
+  return shotsTotal();
+}
 // Para agentes e scripts (render.mjs, o Skill e o Agent do repositório): tudo o que a interface faz, por código.
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 async function settle() { await wait(300); await Promise.all(objs.map((o) => o.ready)); await holo.ready(); await wait(200); }
@@ -1047,7 +1160,8 @@ function setMotion(type, { amplitude, period, tiltX, tiltY } = {}) {
 }
 window.holostudio = {
   version: 1,
-  loadCard, applyLook, setParams, setMotion,
+  loadCard, applyLook, setParams, setMotion, setShots, setSize,
+  shotTypes: () => Object.fromEntries(Object.entries(SHOTS).map(([k, d]) => [k, { name: d.name, dur: d.dur, zoom: d.zoom }])),
   setBack: (url) => setBack(url),
   showBack: (on = true) => { $("#backShow").checked = !!on; },
   render: async (o = {}) => { await settle(); return renderClip(o); },
@@ -1069,6 +1183,8 @@ async function runFromUrl(q) {
     if (Object.keys(params).length) setParams(params);
     if (q.has("motion") || q.has("amp") || q.has("period")) setMotion(q.get("motion") ?? state.motion, { amplitude: q.get("amp"), period: q.get("period"), tiltX: q.get("tiltx"), tiltY: q.get("tilty") });
     if (q.has("zoom")) { state.own["view.zoom"] = Number(q.get("zoom")); frameCamera(); }
+    if (q.has("size")) setSize(q.get("size"));
+    if (q.has("shots")) out.shotsDuration = setShots(q.get("shots"));
     if (q.has("back")) await setBack(q.get("back"));
     if (q.has("card") || q.has("image")) out.card = await loadCard({ name: q.get("card"), set: q.get("set"), number: q.get("number"), lang: q.get("lang"), face: q.get("face"), image: q.get("image") });
     if (q.get("show") === "back") $("#backShow").checked = true;
@@ -1095,7 +1211,7 @@ await loadPresets(localStorage.getItem("holofoil.preset"));
 let saved = null;
 try { saved = JSON.parse(localStorage.getItem("holofoil.session") ?? "null"); } catch {}
 const urlQ = new URLSearchParams(location.search);
-const automated = ["card", "image", "look", "render", "material"].some((k) => urlQ.has(k));
+const automated = ["card", "image", "look", "render", "material", "shots"].some((k) => urlQ.has(k));
 // automação parte sempre do mesmo lugar (o primeiro look), nunca da sessão salva no navegador
 if (saved?.v === 1 && !automated) restore(saved); else if (presets[0]) restore(presets[0].state); else init();
 let lastSession = "";

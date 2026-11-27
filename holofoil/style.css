@@ -81,3 +81,9 @@ button.grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; 
 .maker .wordmark { color: var(--ink); font-size: 14px; font-weight: 700; letter-spacing: 0.14em; }
 .maker:hover .wordmark { color: var(--acc); }
 .fixed { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; color: var(--ink); white-space: nowrap; }
+
+/* tomadas: tipo, duração, zoom, subir, tirar */
+.row.shot { gap: 6px; }
+.row.shot select { flex: 1; min-width: 0; }
+.row.shot input[type="number"] { width: 54px; }
+.row.shot button { padding: 6px 9px; }

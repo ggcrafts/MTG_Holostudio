@@ -22,6 +22,11 @@
 //   --show back          start showing the card back
 //   --back <path|url>    custom back PNG
 //   --p.<id> <value>     any parameter by id, e.g. --p.comp.ink 0.8 --p.prism.intensity 1.2
+//   --shots '<json>'     camera shots (product-style presentation), in order, e.g.
+//                        '[{"tipo":"macro-arte","dur":1.8,"zoom":2.2},{"tipo":"afastar-girar","dur":2}]'
+//                        types: macro-nome, macro-arte, macro-texto, rodape, foil, afastar-girar, passeio, inteira, giro
+//                        (set --duration to the sum of the durations)
+//   --size <WxH>         frame size: 1920x1080 (default), 1080x1920 (vertical, for shorts) or 1080x1080
 //   --render <video|still>   default video
 //   --format <webm|mov|mp4|png>   default webm (VP9 with alpha); mov = ProRes 4444 with alpha
 //   --duration <s> --fps <n>      default 4 s at 30 fps (set duration = period for a perfect loop)
@@ -99,7 +104,7 @@ function findBrowser() {
 
 // ------------------------------------------------------------------ build the automation URL
 const q = new URLSearchParams();
-const pass = ['card', 'set', 'number', 'lang', 'face', 'image', 'look', 'material', 'motion', 'amp', 'period', 'tiltx', 'tilty', 'zoom', 'show', 'back', 'duration', 'fps', 'bg', 't'];
+const pass = ['card', 'set', 'number', 'lang', 'face', 'image', 'look', 'material', 'motion', 'amp', 'period', 'tiltx', 'tilty', 'zoom', 'show', 'back', 'duration', 'fps', 'bg', 't', 'shots', 'size'];
 for (const k of pass) if (opt[k] !== undefined && opt[k] !== true) q.set(k, String(opt[k]));
 for (const [k, v] of Object.entries(opt)) if (k.startsWith('p.')) q.set(k, String(v));
 if (q.has('image') && !/^(https?:|\/)/.test(q.get('image'))) {

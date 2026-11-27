@@ -487,7 +487,8 @@ async function setArt(url, label) {
     U.tArt.value = t; U.uHasArt.value = true;
     state.cardLabel = label;
     $("#cardInfo").textContent = `${label} · ${t.image.width} × ${t.image.height}`;
-  } catch (e) { status(e.message, true); }
+    return true;
+  } catch (e) { status(e.message, true); return false; }
 }
 // ---- busca no Scryfall: sugestões por semelhança do nome e menu de versões ----
 const API = "https://api.scryfall.com";
@@ -985,7 +986,11 @@ async function settle() { await wait(300); await Promise.all(objs.map((o) => o.r
  * (código da coleção, ex. "eoe"), pelo número de colecionador e pelo idioma. Ou uma imagem própria: { image }.
  */
 async function loadCard({ name, set, number, lang, face = 0, image } = {}) {
-  if (image) { await setArt(image, decodeURIComponent(String(image).split("/").pop())); return { image }; }
+  if (image) {
+    // sem a arte, a carta sairia em branco: melhor falhar e avisar quem pediu
+    if (!(await setArt(image, decodeURIComponent(String(image).split("/").pop())))) throw new Error(`could not load the image "${image}"`);
+    return { image };
+  }
   if (!name) throw new Error("loadCard: missing the card name");
   // nome oficial em inglês: busca exata; senão a sugestão mais parecida (aceita português e erros de digitação)
   let en = null;

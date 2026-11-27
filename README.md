@@ -65,6 +65,8 @@ A logo do criador, no topo, é lida de `holofoil/brand/ggcrafts.svg` (ou `.png`,
 
 ## Créditos e licenças
 
+- MTG HoloStudio: licença MIT, © 2026 GGLABS (`LICENSE`).
+
 - Motor holográfico: [holospot](https://github.com/dmitrykurash/holospot), de Dmitry Kurash, licença MIT
   (`vendor/holospot/LICENSE`). A pasta `vendor/holospot` traz só o necessário para rodar (`dist`, `assets`,
   documentação e schema).

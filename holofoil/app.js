@@ -107,10 +107,10 @@ const lerp = (a, b, p) => a + (b - a) * p;
 const easeIO = (p) => 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, p)));
 const easeOut = (p) => 1 - Math.pow(1 - Math.min(1, Math.max(0, p)), 3);
 const SHOTS = {
-  "macro-nome":    { name: "Macro no nome",        dur: 1.4, zoom: 2.4, f: (p, k) => ({ u: lerp(0.24, 0.62, p), v: 0.075, z: k, rx: 3, ry: lerp(-7, 7, p), rz: 0 }) },
-  "macro-arte":    { name: "Macro na arte",        dur: 1.8, zoom: 2.2, f: (p, k) => ({ u: lerp(0.36, 0.64, p), v: 0.33, z: k * lerp(0.94, 1.08, p), rx: -4, ry: lerp(-10, 8, p), rz: 0 }) },
-  "macro-texto":   { name: "Macro no texto",       dur: 1.6, zoom: 2.0, f: (p, k) => ({ u: 0.5, v: lerp(0.68, 0.84, p), z: k, rx: lerp(6, -2, p), ry: lerp(4, -4, p), rz: 0 }) },
-  "rodape":        { name: "Macro no artista",     dur: 1.4, zoom: 2.6, f: (p, k) => ({ u: lerp(0.2, 0.4, p), v: 0.95, z: k, rx: -6, ry: lerp(-6, 4, p), rz: 0 }) },
+  "macro-nome":    { name: "Macro no nome",        linear: true, dur: 1.4, zoom: 2.4, f: (p, k) => ({ u: lerp(0.24, 0.62, p), v: 0.075, z: k, rx: 3, ry: lerp(-7, 7, p), rz: 0 }) },
+  "macro-arte":    { name: "Macro na arte",        linear: true, dur: 1.8, zoom: 2.2, f: (p, k) => ({ u: lerp(0.36, 0.64, p), v: 0.33, z: k * lerp(0.94, 1.08, p), rx: -4, ry: lerp(-10, 8, p), rz: 0 }) },
+  "macro-texto":   { name: "Macro no texto",       linear: true, dur: 1.6, zoom: 2.0, f: (p, k) => ({ u: 0.5, v: lerp(0.68, 0.84, p), z: k, rx: lerp(6, -2, p), ry: lerp(4, -4, p), rz: 0 }) },
+  "rodape":        { name: "Macro no artista",     linear: true, dur: 1.4, zoom: 2.6, f: (p, k) => ({ u: lerp(0.2, 0.4, p), v: 0.95, z: k, rx: -6, ry: lerp(-6, 4, p), rz: 0 }) },
   "foil":          { name: "Passada no foil",      dur: 1.6, zoom: 1.15, f: (p, k) => ({ u: 0.5, v: 0.5, z: k, rx: lerp(-8, 8, p), ry: lerp(-26, 26, p), rz: 0 }) },
   "afastar-girar": { name: "Afastar e girar",      dur: 2.0, zoom: 2.2, f: (p, k) => { const q = easeOut(p * 1.4); return { u: lerp(0.5, 0.5, q), v: lerp(0.33, 0.5, q), z: lerp(k, 1, q), rx: lerp(-4, 4, p), ry: 360 * easeIO(p), rz: 0 }; } },
   "passeio":       { name: "Passeio dramático",    dur: 2.4, zoom: 1.8, f: (p, k) => ({ u: lerp(0.3, 0.7, p), v: lerp(0.46, 0.26, p), z: k * lerp(0.9, 1.15, p), rx: lerp(14, 4, p), ry: lerp(-18, -4, p), rz: lerp(-6, 2, p) }) },
@@ -127,7 +127,8 @@ function shotPose(t, hold = false) {
   if (!list.length || total <= 0) return null;
   let at = hold ? Math.min(t, total - 1e-4) : ((t % total) + total) % total;
   for (const x of list) {
-    if (at <= x.dur) return SHOTS[x.tipo].f(easeIO(at / x.dur), x.zoom);
+    // as macro andam em velocidade constante do primeiro ao último quadro (sem ease): entram e saem em corte seco
+    if (at <= x.dur) { const p = at / x.dur; return SHOTS[x.tipo].f(SHOTS[x.tipo].linear ? p : easeIO(p), x.zoom); }
     at -= x.dur;
   }
   const x = list[list.length - 1];

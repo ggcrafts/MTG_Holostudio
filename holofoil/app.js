@@ -830,10 +830,15 @@ function restore(s) {
 }
 let presets = [];
 async function loadPresets(select) {
-  presets = await (await fetch("/api/presets")).json();
+  const all = await (await fetch("/api/presets")).json();
+  // O seu look com o mesmo nome de um de base toma o lugar dele no menu. Feito aqui também (não só no servidor):
+  // com um servidor aberto desde antes dessa regra, o menu ficava com os dois, "Salvar" gravava o seu e o menu
+  // voltava a apontar para o de base, então aplicar trazia os valores de fábrica, como se nada tivesse sido salvo.
+  const mine = new Set(all.filter((p) => !p.base).map((p) => p.name));
+  presets = all.filter((p) => !(p.base && mine.has(p.name)));
   const el = $("#preset"); el.innerHTML = "";
   presets.forEach((p, i) => { const o = document.createElement("option"); o.value = i; o.textContent = p.base ? `${p.name} (base)` : p.name; el.append(o); });
-  if (select) { const k = presets.findIndex((p) => p.name === select); if (k >= 0) el.value = k; }
+  if (select) { let k = presets.findIndex((p) => p.name === select && !p.base); if (k < 0) k = presets.findIndex((p) => p.name === select); if (k >= 0) el.value = k; }
   syncPresetButtons();
 }
 const currentPreset = () => presets[$("#preset").value];
@@ -939,6 +944,7 @@ $("#expVideo").onclick = async () => {
 window.__studio = { scene: () => holo.scene, info: () => holo.info, state, snapshot, restore, setArt, draw, ready: async () => { await obj?.ready; return true; } };
 renderMotion(); applyOwn();
 setBack(localStorage.getItem("holofoil.back") || BACK_DEFAULT);
+$("#presetKeep").checked = false;                                   // o navegador pode devolver a caixa marcada ao recarregar
 await loadMaps();
 await loadPresets(localStorage.getItem("holofoil.preset"));
 // volta ao que estava na tela da última vez (ajustes ainda não salvos incluídos); senão, o primeiro look

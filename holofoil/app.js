@@ -10,13 +10,14 @@
 //  Todo parâmetro do holospot (material, luzes, relevo, desgaste…) vira controle na direita.
 // ============================================================
 import * as THREE from "three";
-import { Holo, MATERIAL_PARAMS, SCENE_PARAMS } from "holospot";
+import { Holo, MATERIAL_PARAMS, SCENE_PARAMS, resolveSettings } from "holospot";
 
 const $ = (s) => document.querySelector(s);
 const W_MM = 63, H_MM = 88;
 const MATERIALS = { galaxy: "Galaxy (holográfico pela tonalidade)", surge: "Surge (holográfico em linhas)", prism: "Prism Rainbow (foil clássico)", shatter: "Gold Shatter (gelo rachado)", nebula: "Nebula Glitter (galáxia)", sparkle: "Sky Sparkle (pontilhado)", vortex: "Gilded Vortex (espirais)", volume: "Volume Hologram (imagem 3D)" };
 const SIZES = { "1200x1680": "Carta 1200 × 1680", "1800x2520": "Carta 1800 × 2520", "1080x1920": "Reel 1080 × 1920", "1080x1080": "Quadrado 1080" };
 // o que o Studio sempre impõe à cena do holospot (a arte e o fundo são camada do Studio)
+const STUDIO_SCENE = { "card.emboss": "none" };       // padrões do Studio para a cena (o look pode mudar)
 const BASE_SCENE = { "scene.print": "none", "dof.on": false, "card.edgeSilver": false, "card.border": "foil", "scene.background": "black", "display.wideGamut": false };
 
 // controles próprios do Studio (o resto vem do holospot)
@@ -24,7 +25,7 @@ const COMP = [
   { id: "comp.foil", name: "Intensidade do foil", min: 0, max: 2, step: 0.01, def: 1.15, why: "Quanto da luz da folha chega ao olho." },
   { id: "comp.ink", name: "Densidade da tinta", min: 0, max: 2, step: 0.01, def: 0.4, why: "0: folha pura, sem arte. 0,5: tinta fina de carta foil. 1 ou mais: tinta carregada, foil mais escuro e saturado." },
   { id: "comp.diffuse", name: "Luz difusa na arte", min: 0, max: 1, step: 0.01, def: 0.3, why: "Quanto a arte aparece onde a folha não está pegando luz." },
-  { id: "comp.varnish", name: "Verniz (reflexo por cima)", min: 0, max: 1, step: 0.01, def: 0.22, why: "Os reflexos mais fortes passam por cima da tinta, como no verniz da carta." },
+  { id: "comp.varnish", name: "Verniz (reflexo por cima)", min: 0, max: 1, step: 0.01, def: 0, why: "Os reflexos mais fortes passam por cima da tinta, como no verniz da carta." },
   { id: "comp.printLight", name: "Brilho da área sem foil", min: 0.4, max: 1.3, step: 0.01, def: 0.92, why: "Luz da parte impressa sobre base branca (sem folha)." },
   { id: "comp.under", name: "Base branca geral", min: 0, max: 1, step: 0.01, def: 0, why: "Tira o foil da carta inteira aos poucos (1 = carta comum)." },
 ];
@@ -132,7 +133,7 @@ const U = {
   tArt: { value: blank }, tBack: { value: blank }, tMask: { value: blank },
   uRes: { value: new THREE.Vector2(1, 1) }, uSizeMm: { value: new THREE.Vector2(W_MM, H_MM) }, uCorner: { value: 3.0 },
   uHasArt: { value: false }, uHasBack: { value: false }, uHasMask: { value: false }, uInvert: { value: false }, uMode: { value: 0 },
-  uFoil: { value: 1 }, uInk: { value: 1 }, uDiffuse: { value: 0.42 }, uVarnish: { value: 0.22 }, uPrintLight: { value: 0.92 }, uUnder: { value: 0 },
+  uFoil: { value: 1 }, uInk: { value: 1 }, uDiffuse: { value: 0.42 }, uVarnish: { value: 0 }, uPrintLight: { value: 0.92 }, uUnder: { value: 0 },
   tPat: { value: blank }, uHasPat: { value: false }, uPat: { value: 1 }, uPatBlack: { value: 0.08 }, uPatWhite: { value: 0.6 }, uPatInv: { value: false }, uPatRG: { value: false },
   uLuma: { value: 1 }, uBlack: { value: 0.12 }, uWhite: { value: 0.8 }, uGamma: { value: 1 }, uMapBlur: { value: 0.6 }, uLumaInv: { value: false }, uShow: { value: false },
   uText: { value: 0.55 }, uSoft: { value: 0.008 }, uArtRect: { value: new THREE.Vector4() }, uBoxRect: { value: new THREE.Vector4() },
@@ -332,7 +333,6 @@ function init() {
   if (!rendererA) rendererA = new THREE.WebGLRenderer({ canvas: canvasA, antialias: false, preserveDrawingBuffer: true });
   if (!rendererB) rendererB = new THREE.WebGLRenderer({ canvas: out, antialias: true, alpha: true, premultipliedAlpha: true, preserveDrawingBuffer: true });
   rendererB.setClearColor(0x000000, 0);
-  sceneBase = null;
   holo = new Holo(rendererA, { background: "black", compose: "replace", quality: own("view.quality"), lights: own("view.lights") });
   engineKey = `${own("view.quality")}|${own("view.lights")}`;
   holo.expose();
@@ -352,8 +352,14 @@ async function build(first = false) {
   }
   card = cards[0]; obj = objs[0]; galaxyKey = JSON.stringify(galaxyLayer());
   U.uGalaxy.value = galaxy;
-  // a cena de fábrica deste motor, guardada uma vez: todo look parte dela, para nada do look anterior sobrar
-  if (!sceneBase) { sceneBase = {}; for (const q of SCENE_PARAMS) { const v = holo.scene[q.id]; if (v !== undefined && plain(v)) sceneBase[q.id] = v; } }
+  // A base de todo look: a cena de fábrica da carta no holo.spot, com os padrões do Studio por cima. applyScene parte
+  // dela, para nada do look anterior sobrar. O motor liga por padrão um relevo em linhas finas na carta (card.emboss),
+  // que aparecia como ondas no foil: no Studio a carta parte lisa (dá para ligar na aba Superfície, modo avançado).
+  if (!sceneBase) {
+    sceneBase = {};
+    try { for (const [k, v] of Object.entries(resolveSettings({ material: kitMaterial(), look: "card" }).scene)) if (plain(v)) sceneBase[k] = v; } catch {}
+    Object.assign(sceneBase, STUDIO_SCENE);
+  }
   applyScene();
   status(`compilando ${MATERIALS[state.material]}…`);
   try { await Promise.all(objs.map((o) => o.ready)); } catch (e) { status(`erro no holospot: ${e.message ?? e}`, true); return; }

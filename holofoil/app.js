@@ -11,6 +11,7 @@
 // ============================================================
 import * as THREE from "three";
 import { Holo, MATERIAL_PARAMS, SCENE_PARAMS, resolveSettings } from "holospot";
+import { toEnglish } from "./i18n.js";
 
 const $ = (s) => document.querySelector(s);
 const W_MM = 63, H_MM = 88;
@@ -519,10 +520,13 @@ async function suggest(q) {
   // a lista; a ordem final é por semelhança com o que foi digitado. Se nada tiver todas as palavras, vale qualquer uma.
   const stems = norm(q).split(" ").filter((w) => w.length >= 2).map((w) => `name:${w.slice(0, 4)}`);
   const ptSearch = (expr) => api(`/cards/search?q=${encodeURIComponent(`lang:pt ${expr}`)}&unique=cards&include_multilingual=true&order=name`).catch(() => ({ data: [] }));
-  let [en, pt] = await Promise.all([
+  // o "fuzzy" do Scryfall acha a carta mesmo com palavras faltando ou fora de ordem ("sothera supervoid")
+  let [en, pt, fz] = await Promise.all([
     api(`/cards/autocomplete?q=${encodeURIComponent(q)}`).catch(() => ({ data: [] })),
     stems.length ? ptSearch(stems.join(" ")) : { data: [] },
+    q.includes(" ") ? api(`/cards/named?fuzzy=${encodeURIComponent(q)}`).catch(() => null) : null,
   ]);
+  if (fz?.name) out.set(fz.name, { name: fz.name, shown: fz.name, score: Math.max(similar(q, fz.name), 0.9) });
   if (!(pt.data ?? []).length && stems.length > 1) pt = await ptSearch(`(${stems.join(" or ")})`);
   for (const n of en.data ?? []) add(n, n);
   for (const c of pt.data ?? []) add(c.name, ptName(c) || c.name);
@@ -921,29 +925,45 @@ $("#expSize").onchange = resize;
 // ------------------------------------------------------------------ exportar
 const slug = () => (state.cardLabel ?? "carta").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\.[a-z]+$/i, "").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase().slice(0, 48) || "carta";
 const blobOf = () => new Promise((ok) => out.toBlob(ok, "image/png"));
-$("#expStill").onclick = async () => {
-  draw(clock);
-  const r = await (await fetch(`/api/still?name=${slug()}-${state.material}`, { method: "POST", body: await blobOf() })).json();
-  $("#expInfo").textContent = `PNG salvo: ${r.file}`;
-};
-$("#expVideo").onclick = async () => {
-  if (busy) return;
-  const fps = Number($("#expFps").value) || 30, dur = Number($("#expDur").value) || 4, n = Math.max(1, Math.round(fps * dur)), fmt = $("#expFmt").value;
-  busy = true; $("#expVideo").disabled = true;
+$("#expStill").onclick = async () => { const r = await renderStill(); $("#expInfo").textContent = `PNG salvo: ${r.file}`; };
+/**
+ * Renderiza um clipe determinístico: quadro a quadro, sem relógio. Com a duração igual ao período do movimento,
+ * o clipe fecha em laço. Devolve a resposta do servidor: { dir, file?, error? } (caminhos relativos à pasta).
+ */
+async function renderClip({ duration = 4, fps = 30, format = "webm", background = "transparent", onFrame } = {}) {
+  if (busy) throw new Error("a render is already running");
+  const n = Math.max(1, Math.round(fps * duration));
+  busy = true;
   try {
     await holo.ready();
+    $("#expBg").value = background === "transparent" ? "transparent" : "bg";
     const { job } = await (await fetch(`/api/export/start?name=${slug()}-${state.material}`, { method: "POST" })).json();
     for (let i = 0; i < n; i++) {
       draw(i / fps, { dt: 1 / fps });
       const r = await fetch(`/api/export/frame?job=${job}&i=${i}`, { method: "POST", body: await blobOf() });
       if (!r.ok) throw new Error("o servidor recusou um quadro");
-      $("#expInfo").textContent = `quadro ${i + 1} de ${n}`;
+      onFrame?.(i + 1, n);
     }
-    $("#expInfo").textContent = "codificando…";
-    const r = await (await fetch(`/api/export/finish?job=${job}&fps=${fps}&fmt=${fmt}&alpha=${$("#expBg").value === "transparent" ? 1 : 0}`, { method: "POST" })).json();
+    onFrame?.(n, n, "encode");
+    return await (await fetch(`/api/export/finish?job=${job}&fps=${fps}&fmt=${format}&alpha=${background === "transparent" ? 1 : 0}`, { method: "POST" })).json();
+  } finally { busy = false; last = performance.now(); }
+}
+async function renderStill(t = clock) {
+  draw(t); draw(t);
+  return await (await fetch(`/api/still?name=${slug()}-${state.material}`, { method: "POST", body: await blobOf() })).json();
+}
+$("#expVideo").onclick = async () => {
+  if (busy) return;
+  $("#expVideo").disabled = true;
+  try {
+    const r = await renderClip({
+      duration: Number($("#expDur").value) || 4, fps: Number($("#expFps").value) || 30, format: $("#expFmt").value,
+      background: $("#expBg").value === "transparent" ? "transparent" : "bg",
+      onFrame: (i, n, phase) => { $("#expInfo").textContent = phase ? "codificando…" : `quadro ${i} de ${n}`; },
+    });
     $("#expInfo").textContent = r.error ? `Quadros em ${r.dir}. ${r.error}` : `Pronto: ${r.file ?? r.dir}`;
   } catch (e) { $("#expInfo").textContent = `Falhou: ${e.message}`; }
-  busy = false; $("#expVideo").disabled = false; last = performance.now();
+  $("#expVideo").disabled = false;
 };
 
 // ------------------------------------------------------------------ logo do criador (holofoil/brand/ggcrafts.svg|png|webp)
@@ -953,6 +973,110 @@ $("#expVideo").onclick = async () => {
   img.onload = () => { img.hidden = false; $(".maker .wordmark").hidden = true; };
   img.onerror = () => { if (++k < files.length) img.src = files[k]; };        // sem arquivo: fica o nome em texto
   img.src = files[0];
+}
+
+// ------------------------------------------------------------------ automação (window.holostudio e parâmetros na URL)
+// Para agentes e scripts (render.mjs, o Skill e o Agent do repositório): tudo o que a interface faz, por código.
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+async function settle() { await wait(300); await Promise.all(objs.map((o) => o.ready)); await holo.ready(); await wait(200); }
+
+/**
+ * Carrega uma carta do Scryfall pelo nome (inglês ou português, com tolerância a erro) e, se quiser, pela edição
+ * (código da coleção, ex. "eoe"), pelo número de colecionador e pelo idioma. Ou uma imagem própria: { image }.
+ */
+async function loadCard({ name, set, number, lang, face = 0, image } = {}) {
+  if (image) { await setArt(image, decodeURIComponent(String(image).split("/").pop())); return { image }; }
+  if (!name) throw new Error("loadCard: missing the card name");
+  // nome oficial em inglês: busca exata; senão a sugestão mais parecida (aceita português e erros de digitação)
+  let en = null;
+  const exact = await api(`/cards/named?exact=${encodeURIComponent(name)}`).catch(() => null);
+  if (exact?.name) en = exact.name;
+  else { const sg = (await suggest(name))[0]; if (!sg) throw new Error(`no card similar to "${name}"`); en = sg.name; }
+  const parts = [`!"${en}"`, "game:paper"];
+  if (set) parts.push(`set:${String(set).toLowerCase()}`);
+  if (number) parts.push(`cn:"${number}"`);
+  const q = (langPart) => api(`/cards/search?q=${encodeURIComponent([...parts, langPart].join(" "))}&unique=prints&include_multilingual=true&include_extras=true&order=released&dir=desc`);
+  let r = await q(lang && lang !== "any" ? `lang:${lang}` : lang === "any" ? "lang:any" : "lang:en");   // sem idioma: inglês; se não houver, qualquer um
+  if (!(r.data ?? []).length && !lang) r = await q("lang:any");
+  const list = (r.data ?? []).filter((c) => imgOf(c));
+  if (!list.length) throw new Error(`"${en}"${set ? ` in set ${set}` : ""}${number ? ` #${number}` : ""}: no printing with an image`);
+  // espelha na interface: nome, menu de versões e frente/verso
+  picked = { name: en, shown: name }; $("#cardName").value = name;
+  prints = list; const sel = $("#cardPrint"); sel.innerHTML = "";
+  prints.forEach((c, i) => { const o = document.createElement("option"); o.value = i; o.textContent = printLabel(c); sel.append(o); });
+  sel.disabled = false; sel.value = "0";
+  const back = face === "back" || face === 1 || face === "1";
+  $("#cardFace").value = back ? "1" : "0";
+  await usePrint();
+  const c = prints[0];
+  return { name: c.name, printedName: ptName(c) ?? null, set: c.set, setName: c.set_name, number: c.collector_number, lang: c.lang, image: imgOf(c, back ? 1 : 0), scryfall: c.scryfall_uri };
+}
+/** Aplica um look pelo nome (os de base e os seus) ou um estado completo (o JSON de "Copiar JSON") */
+function applyLook(look) {
+  if (look && typeof look === "object") { restore(look.state ?? look); return look.name ?? "custom"; }
+  const want = norm(look);
+  const p = presets.find((x) => norm(x.name) === want || norm(toEnglish(x.name)) === want) ?? presets.find((x) => norm(x.name).includes(want) || norm(toEnglish(x.name)).includes(want));
+  if (!p) throw new Error(`look "${look}" does not exist. Looks: ${presets.map((x) => `${x.name}${toEnglish(x.name) !== x.name ? ` (${toEnglish(x.name)})` : ""}`).join(", ")}`);
+  restore(p.state); return p.name;
+}
+/** Muda qualquer parâmetro por id: do Studio (comp., mask., galaxy., motion., view.), da cena (studio., bump., card., display.…) ou do material (prism., vortex.…) */
+function setParams(values = {}) {
+  let rebuild = false;
+  for (const [k, v] of Object.entries(values)) {
+    if (k === "material") { state.material = v; rebuild = true; }
+    else if (OWN.some((c) => c.id === k)) state.own[k] = v;
+    else if (SCENE_PARAMS.some((q) => q.id === k)) state.scene[k] = v;
+    else { (state.mat[state.material] ??= {})[k] = v; for (const o of objs) o.set({ [k]: v }); }
+  }
+  if (rebuild) build(); else { applyScene(); applyOwn(); }
+  renderPanel();
+}
+function setMotion(type, { amplitude, period, tiltX, tiltY } = {}) {
+  if (!(type in MOTIONS)) throw new Error(`motion "${type}" does not exist: ${Object.keys(MOTIONS).join(", ")}`);
+  state.motion = type; $("#motion").value = type;
+  if (amplitude != null) state.own["motion.amp"] = Number(amplitude);
+  if (period != null) state.own["motion.period"] = Number(period);
+  if (tiltX != null) state.own["motion.rx"] = Number(tiltX);
+  if (tiltY != null) state.own["motion.ry"] = Number(tiltY);
+  renderMotion();
+}
+window.holostudio = {
+  version: 1,
+  loadCard, applyLook, setParams, setMotion,
+  setBack: (url) => setBack(url),
+  showBack: (on = true) => { $("#backShow").checked = !!on; },
+  render: async (o = {}) => { await settle(); return renderClip(o); },
+  still: async (t) => { await settle(); return renderStill(t ?? 0); },
+  looks: () => presets.map((p) => ({ name: p.name, base: !!p.base, material: p.state?.material })),
+  materials: () => ({ ...MATERIALS }), motions: () => Object.keys(MOTIONS),
+  params: () => ({ studio: OWN.map((c) => c.id), scene: SCENE_PARAMS.map((q) => q.id), material: (MATERIAL_PARAMS[kitMaterial()] ?? []).map((q) => q.id) }),
+  snapshot, ready: settle,
+};
+
+/** Parâmetros na URL: abre, monta e (com render=…) renderiza sozinho. O resultado fica em window.holostudioResult. */
+async function runFromUrl(q) {
+  const out = { ok: false };
+  try {
+    if (q.has("look")) out.look = applyLook(q.get("look"));
+    const params = {};
+    for (const [k, v] of q) if (k.startsWith("p.")) params[k.slice(2)] = v === "true" ? true : v === "false" ? false : v !== "" && !isNaN(Number(v)) ? Number(v) : v;
+    if (q.has("material")) params.material = q.get("material");
+    if (Object.keys(params).length) setParams(params);
+    if (q.has("motion") || q.has("amp") || q.has("period")) setMotion(q.get("motion") ?? state.motion, { amplitude: q.get("amp"), period: q.get("period"), tiltX: q.get("tiltx"), tiltY: q.get("tilty") });
+    if (q.has("zoom")) { state.own["view.zoom"] = Number(q.get("zoom")); frameCamera(); }
+    if (q.has("back")) await setBack(q.get("back"));
+    if (q.has("card") || q.has("image")) out.card = await loadCard({ name: q.get("card"), set: q.get("set"), number: q.get("number"), lang: q.get("lang"), face: q.get("face"), image: q.get("image") });
+    if (q.get("show") === "back") $("#backShow").checked = true;
+    const r = q.get("render");
+    if (r === "still") out.result = await holostudio.still(Number(q.get("t") ?? 0));
+    else if (r) out.result = await holostudio.render({ duration: Number(q.get("duration") ?? 4), fps: Number(q.get("fps") ?? 30), format: ["mov", "webm", "mp4", "png"].includes(r) ? r : (q.get("format") ?? "webm"), background: q.get("bg") ?? "transparent" });
+    out.ok = !out.result?.error;
+    if (out.result?.error) out.error = out.result.error;
+  } catch (e) { out.error = String(e?.message ?? e); }
+  window.holostudioResult = out;
+  if (q.has("job")) await fetch(`/api/automation/result?id=${encodeURIComponent(q.get("job"))}`, { method: "POST", body: JSON.stringify(out) }).catch(() => {});
+  document.title = out.ok ? "HOLOSTUDIO DONE" : "HOLOSTUDIO ERROR";
+  status(out.ok ? `automação: ${out.result?.file ?? out.result?.dir ?? "pronto"}` : `automação: ${out.error}`, !out.ok);
 }
 
 // ------------------------------------------------------------------ início
@@ -965,7 +1089,11 @@ await loadPresets(localStorage.getItem("holofoil.preset"));
 // volta ao que estava na tela da última vez (ajustes ainda não salvos incluídos); senão, o primeiro look
 let saved = null;
 try { saved = JSON.parse(localStorage.getItem("holofoil.session") ?? "null"); } catch {}
-if (saved?.v === 1) restore(saved); else if (presets[0]) restore(presets[0].state); else init();
+const urlQ = new URLSearchParams(location.search);
+const automated = ["card", "image", "look", "render", "material"].some((k) => urlQ.has(k));
+// automação parte sempre do mesmo lugar (o primeiro look), nunca da sessão salva no navegador
+if (saved?.v === 1 && !automated) restore(saved); else if (presets[0]) restore(presets[0].state); else init();
 let lastSession = "";
 setInterval(() => { const j = JSON.stringify(snapshot()); if (j !== lastSession) { lastSession = j; try { localStorage.setItem("holofoil.session", j); } catch {} } }, 1000);
 requestAnimationFrame(loop);
+if (automated) settle().then(() => runFromUrl(urlQ));

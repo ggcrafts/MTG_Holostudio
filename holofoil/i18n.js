@@ -103,6 +103,7 @@ const EN = {
 };
 
 // frases com valores (mensagens de status, rótulos montados)
+const FX = { "sem borda": "borderless", "arte estendida": "extended art", "invertida": "inverted", "sem texto": "textless", "moldura antiga": "old frame", "futurista": "future frame", "só foil": "foil only" };
 const PATTERNS = [
   [/^(.+) \(base\)$/, (m) => `${tr(m[1])} (base)`],
   [/^Salvar em "(.+)"$/, (m) => `Save to "${tr(m[1])}"`],
@@ -136,6 +137,9 @@ const PATTERNS = [
   [/^não gravou a imagem: (.+)$/, (m) => `could not save the image: ${m[1]}`],
   [/^não abriu (.+)$/, (m) => `could not open ${m[1]}`],
   [/^Scryfall: (.+)$/, (m) => `Scryfall: ${m[1]}`],
+  // versões no menu: "EOE #382 · Edge of Eternities · 2025 · EN · sem borda, só foil"
+  [/^([A-Z0-9]+ #\S+ · .+ · \d{4} · [A-Z]+) · (.+)$/, (m) => `${m[1]} · ${m[2].split(", ").map((x) => FX[x] ?? x).join(", ")}`],
+  [/^automação: (.+)$/, (m) => `automation: ${tr(m[1])}`],
 ];
 
 let lang = "pt";
@@ -148,6 +152,8 @@ export function tr(s) {
   for (const [re, f] of PATTERNS) { const m = re.exec(s); if (m) return f(m); }
   return s;
 }
+/** Nome em inglês, qualquer que seja o idioma da interface (para a automação aceitar os dois) */
+export const toEnglish = (s) => (Object.prototype.hasOwnProperty.call(EN, s) ? EN[s] : s);
 const wrap = (s) => { const t = s.trim(); if (!t) return s; const r = tr(t); return r === t ? s : s.replace(t, r); };
 
 // texto original por nó / atributo, para voltar ao português e para não traduzir duas vezes

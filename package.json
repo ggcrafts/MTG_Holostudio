@@ -1,13 +1,26 @@
 {
   "name": "mtg-holostudio",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "Gerador de cartas holofoil de Magic: folha holográfica em 3D (motor holo.spot) com a arte impressa por cima, looks editáveis e exportação de PNG e clipes com alpha.",
+  "description": "Holographic foil card studio for MTG and TCG creators: physically lit foil (holo.spot engine), printed art on top, editable looks, Scryfall search by name and edition, and frame-exact clips with alpha. Scriptable by Claude.",
   "type": "module",
   "scripts": {
-    "start": "node server.mjs"
+    "start": "node server.mjs",
+    "render": "node render.mjs"
   },
   "engines": {
     "node": ">=20"
-  }
+  },
+  "keywords": [
+    "mtg",
+    "magic-the-gathering",
+    "tcg",
+    "foil",
+    "holographic",
+    "scryfall",
+    "threejs",
+    "content-creator",
+    "claude"
+  ],
+  "license": "MIT"
 }

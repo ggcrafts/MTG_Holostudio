@@ -75,6 +75,7 @@ function presets() {
     return list;
 }
 const jobs = new Map();
+const results = new Map();
 function encode(dir, fps, fmt, alpha) {
     if (fmt === 'png')
         return {};
@@ -174,6 +175,17 @@ const server = http.createServer(async (req, res) => {
                 return json(res, { error: 'job desconhecido' }, 400);
             fs.writeFileSync(path.join(dir, 'frames', `f_${String(i).padStart(5, '0')}.png`), await body(req));
             return json(res, { ok: true });
+        }
+        // automação (render.mjs): a página publica o resultado aqui e o script lê
+        if (p === '/api/automation/result') {
+            const id = (url.searchParams.get('id') ?? '').replace(/[^\w-]/g, '').slice(0, 64);
+            if (!id)
+                return json(res, { error: 'falta id' }, 400);
+            if (req.method === 'POST') {
+                results.set(id, JSON.parse((await body(req)).toString('utf8') || '{}'));
+                return json(res, { ok: true });
+            }
+            return results.has(id) ? json(res, results.get(id)) : json(res, { pending: true });
         }
         if (p === '/api/export/finish' && req.method === 'POST') {
             const dir = jobs.get(url.searchParams.get('job') ?? '');

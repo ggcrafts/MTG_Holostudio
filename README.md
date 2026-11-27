@@ -34,17 +34,17 @@ Em máquina fraca, abra com `?quality=low` no fim do endereço.
   arrastar e soltar; ou imagens deixadas na pasta `cards/`. Verso por PNG próprio.
 - **Looks.** Cada look guarda todas as propriedades. Os de base ficam em `holofoil/presets-base.json`; os seus,
   em `data/holofoil/presets/`. "Colar do holo.spot" aceita o JSON do botão `</>` (Copy settings) do site.
-- **Exportar.** PNG do quadro ou clipe em MOV ProRes 4444 com alpha, WebM VP9 com alpha ou MP4, mais a
+- **Exportar.** Em 1920 × 1080: PNG do quadro ou clipe em MOV ProRes 4444 com alpha, WebM VP9 com alpha ou MP4, mais a
   sequência PNG, em `output/holofoil/<carta>/`. Com a duração igual ao período do movimento, o clipe fecha em laço.
-- **Interface.** Modo simples com meia dúzia de controles e modo avançado com todos; zoom de 20% a 500%
-  com a roda do mouse.
+- **Interface.** Português ou inglês (chave PT/EN no topo); modo simples com meia dúzia de controles e modo
+  avançado com todos; zoom de 20% a 500% com a roda do mouse.
 
 ## Pastas
 
 | Caminho | O que é |
 |---|---|
 | `server.mjs` | Servidor local (só 127.0.0.1): arquivos estáticos, looks, uploads, exportação com ffmpeg |
-| `holofoil/index.html`, `style.css`, `app.js` | A interface e a composição folha + tinta, mais o shader de difração do Galaxy e do Surge |
+| `holofoil/index.html`, `style.css`, `app.js`, `i18n.js` | A interface e a composição folha + tinta, mais o shader de difração do Galaxy e do Surge |
 | `holofoil/presets-base.json` | Looks de base |
 | `holofoil/maps/` | Perfis holográficos: `galaxy.png` (tons de cinza) e `surge.png` (R = máscara, G = tonalidade) |
 | `holofoil/bumps/` | Mapas de relevo próprios |
@@ -53,6 +53,8 @@ Em máquina fraca, abra com `?quality=low` no fim do endereço.
 | `data/`, `output/` | Seus looks, uploads e exportações (fora do Git) |
 
 Um verso padrão é opcional: salve-o como `holofoil/back.png`.
+
+A logo do criador, no topo, é lida de `holofoil/brand/ggcrafts.svg` (ou `.png`, `.webp`); sem o arquivo, aparece o nome em texto.
 
 ## Editar os mapas
 

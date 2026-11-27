@@ -1,7 +1,7 @@
 :root { --bg: #0b0d12; --panel: #12151c; --line: #232833; --ink: #e8e6df; --mute: #8b93a3; --acc: #f2b84b; }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 13px/1.35 "Chakra Petch", "Segoe UI", system-ui, sans-serif; }
-body { display: grid; grid-template-columns: 300px 1fr 340px; overflow: hidden; }
+body { display: grid; grid-template-columns: 300px 1fr 340px; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
 aside { background: var(--panel); overflow-y: auto; border-right: 1px solid var(--line); }
 #right { border-right: 0; border-left: 1px solid var(--line); display: flex; flex-direction: column; }
 header { padding: 14px 14px 10px; border-bottom: 1px solid var(--line); }
@@ -66,3 +66,18 @@ button:disabled { opacity: 0.5; cursor: default; }
 
 button.grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 #presetDelete[data-armed] { border-color: #ff7a6b; color: #ff7a6b; }
+
+/* barra do topo: nome, idioma e criador */
+#top { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 14px; background: var(--panel); border-bottom: 1px solid var(--line); }
+#top .brand b { font-size: 16px; letter-spacing: 0.02em; margin-right: 10px; }
+#top .brand span { color: var(--mute); font-size: 11px; }
+#top .topright { display: flex; align-items: center; gap: 18px; }
+.langs { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.langs button { border: 0; border-radius: 0; padding: 4px 10px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; color: var(--mute); background: transparent; }
+.langs button.on { background: var(--acc); color: #17130a; }
+.maker { display: flex; align-items: center; gap: 8px; color: var(--mute); text-decoration: none; font-size: 11px; }
+.maker img { height: 26px; width: auto; display: block; }
+.maker img[hidden], .maker .wordmark[hidden] { display: none; }
+.maker .wordmark { color: var(--ink); font-size: 14px; font-weight: 700; letter-spacing: 0.14em; }
+.maker:hover .wordmark { color: var(--acc); }
+.fixed { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; color: var(--ink); white-space: nowrap; }

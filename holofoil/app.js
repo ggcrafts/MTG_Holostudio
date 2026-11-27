@@ -15,7 +15,7 @@ import { Holo, MATERIAL_PARAMS, SCENE_PARAMS, resolveSettings } from "holospot";
 const $ = (s) => document.querySelector(s);
 const W_MM = 63, H_MM = 88;
 const MATERIALS = { galaxy: "Galaxy (holográfico pela tonalidade)", surge: "Surge (holográfico em linhas)", prism: "Prism Rainbow (foil clássico)", shatter: "Gold Shatter (gelo rachado)", nebula: "Nebula Glitter (galáxia)", sparkle: "Sky Sparkle (pontilhado)", vortex: "Gilded Vortex (espirais)", volume: "Volume Hologram (imagem 3D)" };
-const SIZES = { "1200x1680": "Carta 1200 × 1680", "1800x2520": "Carta 1800 × 2520", "1080x1920": "Reel 1080 × 1920", "1080x1080": "Quadrado 1080" };
+const SIZES = { "1920x1080": "1920 × 1080" };              // exportação: só o padrão 1920 × 1080
 // o que o Studio sempre impõe à cena do holospot (a arte e o fundo são camada do Studio)
 const STUDIO_SCENE = { "card.emboss": "none" };       // padrões do Studio para a cena (o look pode mudar)
 const BASE_SCENE = { "scene.print": "none", "dof.on": false, "card.edgeSilver": false, "card.border": "foil", "scene.background": "black", "display.wideGamut": false };
@@ -945,6 +945,15 @@ $("#expVideo").onclick = async () => {
   } catch (e) { $("#expInfo").textContent = `Falhou: ${e.message}`; }
   busy = false; $("#expVideo").disabled = false; last = performance.now();
 };
+
+// ------------------------------------------------------------------ logo do criador (holofoil/brand/ggcrafts.svg|png|webp)
+{
+  const img = $("#makerLogo"), files = ["/holofoil/brand/ggcrafts.svg", "/holofoil/brand/ggcrafts.png", "/holofoil/brand/ggcrafts.webp"];
+  let k = 0;
+  img.onload = () => { img.hidden = false; $(".maker .wordmark").hidden = true; };
+  img.onerror = () => { if (++k < files.length) img.src = files[k]; };        // sem arquivo: fica o nome em texto
+  img.src = files[0];
+}
 
 // ------------------------------------------------------------------ início
 window.__studio = { scene: () => holo.scene, info: () => holo.info, state, snapshot, restore, setArt, draw, ready: async () => { await obj?.ready; return true; } };

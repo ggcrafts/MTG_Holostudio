@@ -47,8 +47,9 @@ const EN = {
   "Tomadas (câmera)": "Shots (camera)", "Macro no nome": "Macro on the name", "Macro na arte": "Macro on the art", "Macro no texto": "Macro on the text",
   "Macro no artista": "Macro on the artist", "Passada no foil": "Foil pass", "Afastar e girar": "Pull back and spin", "Passeio dramático": "Dramatic fly-over",
   "Carta inteira": "Whole card", "Tomada": "Shot", "Duração (s)": "Duration (s)", "Aproximação (×)": "Zoom (×)", "Subir": "Move up", "Tirar": "Remove",
-  "+ Tomada": "+ Shot", "Enviar tomadas de volta": "Send shots back", "Grava estas tomadas (e o look escolhido) de onde o Studio foi aberto": "Saves these shots (and the chosen look) where the Studio was opened from",
+  "+ Tomada": "+ Shot", "Enviar look e tomadas de volta": "Send look and shots back", "Grava de onde o Studio foi aberto o estado inteiro desta tela: o look (material, luzes, tinta, máscara) e as tomadas": "Saves the whole state of this screen where the Studio was opened from: the look (material, lights, ink, mask) and the shots",
   "tomadas enviadas": "shots sent",
+  "estado: use o JSON do Studio ou um endereço deste servidor": "estado: use the Studio JSON or an address on this server",
   "Amplitude": "Amplitude", "Período": "Period", "Inclinação base X": "Base tilt X", "Inclinação base Y": "Base tilt Y",
   // exportar
   "Exportar": "Export", "Fundo transparente": "Transparent background", "Com o fundo": "With background",

@@ -99,6 +99,13 @@ other. Each item is `{"tipo": <type>, "dur": <seconds>, "zoom": <×, optional>}`
 Set `--duration` to the sum of the `dur` values. The camera really moves in (perspective), so sharpness is limited by
 the card image: Scryfall images hold up to about 2×. `--size 1080x1920` renders vertical frames for shorts and reels.
 
+### An exact look from the Studio
+
+When the user tuned a look by hand, ask for the Studio's **Copy JSON** (Look panel), save it to a file and pass
+`--state look.json`: the render uses that look exactly (material, lights, relief, ink, mask). Applying a look never
+changes the camera: `--state`, `--look` and the Look menu only change the appearance, and `--shots` / `--motion`
+still decide the movement.
+
 ```bash
 node render.mjs --card "Silverquill Lecturer" --look "Galaxy foil" --size 1080x1920 --duration 7 \
   --shots '[{"tipo":"macro-nome","dur":1.2},{"tipo":"macro-arte","dur":1.8},{"tipo":"macro-texto","dur":1.5},{"tipo":"afastar-girar","dur":2.5}]'

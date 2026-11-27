@@ -58,7 +58,7 @@
 
   <section>
     <h2>Exportar</h2>
-    <div class="row"><span class="fixed">1920 × 1080</span><select id="expSize" hidden></select><select id="expBg"><option value="transparent">Fundo transparente</option><option value="bg">Com o fundo</option></select></div>
+    <div class="row"><span class="fixed" id="expSizeLabel">1920 × 1080</span><select id="expSize" hidden></select><select id="expBg"><option value="transparent">Fundo transparente</option><option value="bg">Com o fundo</option></select></div>
     <div class="row"><label>Duração <input id="expDur" type="number" value="4" min="0.5" max="30" step="0.5"> s</label><label>FPS <input id="expFps" type="number" value="30" min="12" max="60" step="1"></label></div>
     <div class="row"><select id="expFmt"><option value="mov">MOV ProRes 4444 (alpha, After Effects)</option><option value="webm">WebM VP9 (alpha, HyperFrames)</option><option value="mp4">MP4 H.264</option><option value="png">Só a sequência PNG</option></select></div>
     <div class="row"><button id="expStill">PNG deste quadro</button><button id="expVideo" class="primary">Renderizar clipe</button></div>

@@ -27,6 +27,8 @@
 //                        types: macro-nome, macro-arte, macro-texto, rodape, foil, afastar-girar, passeio, inteira, giro
 //                        (set --duration to the sum of the durations)
 //   --size <WxH>         frame size: 1920x1080 (default), 1080x1920 (vertical, for shorts) or 1080x1080
+//   --state <file>       the full Studio state, as saved by "Copy JSON": look and camera shots exactly as set
+//                        by hand (--look, --shots and the p.* options still apply on top of it)
 //   --render <video|still>   default video
 //   --format <webm|mov|mp4|png>   default webm (VP9 with alpha); mov = ProRes 4444 with alpha
 //   --duration <s> --fps <n>      default 4 s at 30 fps (set duration = period for a perfect loop)
@@ -107,6 +109,12 @@ const q = new URLSearchParams();
 const pass = ['card', 'set', 'number', 'lang', 'face', 'image', 'look', 'material', 'motion', 'amp', 'period', 'tiltx', 'tilty', 'zoom', 'show', 'back', 'duration', 'fps', 'bg', 't', 'shots', 'size'];
 for (const k of pass) if (opt[k] !== undefined && opt[k] !== true) q.set(k, String(opt[k]));
 for (const [k, v] of Object.entries(opt)) if (k.startsWith('p.')) q.set(k, String(v));
+if (opt.state) {
+    // the full Studio state ("Copy JSON"): look and camera shots exactly as they were set up by hand
+    let st;
+    try { st = JSON.parse(fs.readFileSync(path.resolve(String(opt.state)), 'utf8')); } catch (e) { fail(`--state: could not read ${opt.state} (${e.message})`); }
+    q.set('estado', JSON.stringify(st.state ?? st.estado ?? st));
+}
 if (q.has('image') && !/^(https?:|\/)/.test(q.get('image'))) {
     // a local file: it must be inside this folder so the Studio server can serve it
     const abs = path.resolve(opt.image);

@@ -346,9 +346,16 @@ const bgQuad = new THREE.Mesh(
 bgQuad.frustumCulled = false; bgQuad.renderOrder = -1; sceneB.add(bgQuad);
 
 function size() { const [w, h] = $("#expSize").value.split("x").map(Number); return { w, h }; }
+let texW = 0, texH = 0;
 function resize() {
   const { w, h } = size();
   for (const r of [rendererA, rendererB]) { r.setPixelRatio(1); r.setSize(w, h, false); }
+  // A textura do foil é a cópia do canvas do holospot, e o three.js reserva a memória dela uma vez só (texStorage2D):
+  // quando o quadro mudava de tamanho (o vertical dos shorts), a cópia nova não cabia e o foil congelava numa faixa
+  // branca, sem responder aos parâmetros. Liberar a textura faz o three.js reservar de novo no tamanho certo.
+  if (texW && (texW !== w || texH !== h)) for (const t of layerTex) t.dispose();
+  texW = w; texH = h;
+  const label = $("#expSizeLabel"); if (label) label.textContent = `${w} × ${h}`;
   out.style.aspectRatio = `${w} / ${h}`;
   U.uRes.value.set(w, h);
   frameCamera();
@@ -890,11 +897,21 @@ function fullScene() {
 const snapshot = () => ({ v: 1, material: state.material, mat: { ...state.mat, [state.material]: fullMaterial() }, scene: fullScene(), own: Object.fromEntries(OWN.filter((c) => !SESSION.test(c.id)).map((c) => [c.id, own(c.id)])), motion: state.motion, shots: structuredClone(state.shots) });
 const SESSION = /^view\.(quality|zoom|panX|panY)$/;      // da máquina e do momento, não do look
 const KEEP = /^(comp|mask)\./;
-function restore(s) {
+const CAMERA = /^motion\./;                              // o movimento é do vídeo, não do look
+/**
+ * Aplica um estado do Studio. Um look só muda a aparência (material, cena, tinta, máscara): o movimento e as tomadas
+ * da câmera ficam como estão. camera: true traz também o movimento salvo (a sessão do navegador, o estado completo
+ * de um vídeo).
+ */
+function restore(s, { camera = false } = {}) {
   state.material = s.material in MATERIALS ? s.material : "prism";
-  state.mat = structuredClone(s.mat ?? {}); state.scene = structuredClone(s.scene ?? {}); const mine = Object.entries(state.own).filter(([k]) => SESSION.test(k)); state.own = structuredClone(s.own ?? {}); state.motion = s.motion in MOTIONS ? s.motion : state.motion;
-  if (Array.isArray(s.shots) && s.shots.length) state.shots = cleanShots(s.shots);
-  for (const [k, v] of mine) if (!(k in state.own)) state.own[k] = v;      // qualidade e zoom são da máquina e do momento, não do look
+  const mine = Object.entries(state.own).filter(([k]) => SESSION.test(k) || (!camera && CAMERA.test(k)));
+  state.mat = structuredClone(s.mat ?? {}); state.scene = structuredClone(s.scene ?? {}); state.own = structuredClone(s.own ?? {});
+  if (camera) {
+    state.motion = s.motion in MOTIONS ? s.motion : state.motion;
+    if (Array.isArray(s.shots) && s.shots.length) state.shots = cleanShots(s.shots);
+    for (const [k, v] of mine) if (!(k in state.own)) state.own[k] = v;     // qualidade e zoom são da máquina e do momento, não do look
+  } else for (const [k, v] of mine) state.own[k] = v;                        // o movimento da câmera não é do look
   $("#motion").value = state.motion; renderMotion(); applyOwn();
   // o motor só é recriado quando a qualidade ou o modo das luzes muda (recriar a cada look acumula memória de vídeo);
   // nos outros casos troca-se a carta, e scene: true devolve a cena ao padrão antes dos ajustes do look
@@ -1004,11 +1021,11 @@ function renderShots(box) {
   box.append(foot);
   // aberto por outra ferramenta com um endereço de retorno (o painel do Combalista): manda as tomadas de volta
   if (RETORNO) {
-    const send = document.createElement("button"); send.className = "primary"; send.textContent = "Enviar tomadas de volta";
-    send.title = "Grava estas tomadas (e o look escolhido) de onde o Studio foi aberto";
+    const send = document.createElement("button"); send.className = "primary"; send.textContent = "Enviar look e tomadas de volta";
+    send.title = "Grava de onde o Studio foi aberto o estado inteiro desta tela: o look (material, luzes, tinta, máscara) e as tomadas";
     send.onclick = async () => {
       try {
-        const r = await fetch(RETORNO, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ shots: state.shots, look: currentPreset()?.name ?? null }) });
+        const r = await fetch(RETORNO, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ shots: state.shots, look: currentPreset()?.name ?? null, state: snapshot() }) });
         const j = await r.json().catch(() => ({}));
         if (!r.ok || j.error) throw new Error(j.error || `HTTP ${r.status}`);
         status(j.message || "tomadas enviadas");
@@ -1172,10 +1189,22 @@ window.holostudio = {
   snapshot, ready: settle,
 };
 
+/** O estado vem no próprio parâmetro (JSON) ou num endereço deste servidor que devolve o JSON */
+async function readState(v) {
+  const text = v.trim();
+  if (text.startsWith("{")) return JSON.parse(text);
+  if (!/^\/[\w/.%?=&-]+$/.test(text)) throw new Error("estado: use o JSON do Studio ou um endereço deste servidor");
+  const r = await fetch(text);
+  if (!r.ok) throw new Error(`estado: HTTP ${r.status}`);
+  const j = await r.json();
+  return j.state ?? j.estado ?? j;
+}
 /** Parâmetros na URL: abre, monta e (com render=…) renderiza sozinho. O resultado fica em window.holostudioResult. */
 async function runFromUrl(q) {
   const out = { ok: false };
   try {
+    // estado: o JSON completo do Studio (o de "Copiar JSON", ou o devolvido ao painel), com o look e as tomadas
+    if (q.has("estado")) { restore(await readState(q.get("estado")), { camera: true }); out.state = true; }
     if (q.has("look")) out.look = applyLook(q.get("look"));
     const params = {};
     for (const [k, v] of q) if (k.startsWith("p.")) params[k.slice(2)] = v === "true" ? true : v === "false" ? false : v !== "" && !isNaN(Number(v)) ? Number(v) : v;
@@ -1211,9 +1240,9 @@ await loadPresets(localStorage.getItem("holofoil.preset"));
 let saved = null;
 try { saved = JSON.parse(localStorage.getItem("holofoil.session") ?? "null"); } catch {}
 const urlQ = new URLSearchParams(location.search);
-const automated = ["card", "image", "look", "render", "material", "shots"].some((k) => urlQ.has(k));
+const automated = ["card", "image", "look", "render", "material", "shots", "estado"].some((k) => urlQ.has(k));
 // automação parte sempre do mesmo lugar (o primeiro look), nunca da sessão salva no navegador
-if (saved?.v === 1 && !automated) restore(saved); else if (presets[0]) restore(presets[0].state); else init();
+if (saved?.v === 1 && !automated) restore(saved, { camera: true }); else if (presets[0]) restore(presets[0].state); else init();
 let lastSession = "";
 setInterval(() => { const j = JSON.stringify(snapshot()); if (j !== lastSession) { lastSession = j; try { localStorage.setItem("holofoil.session", j); } catch {} } }, 1000);
 requestAnimationFrame(loop);

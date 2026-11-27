@@ -549,6 +549,7 @@ function tex(url) {
   return new Promise((ok, no) => loader.load(url, (t) => { t.colorSpace = THREE.NoColorSpace; t.anisotropy = 16; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; ok(t); }, undefined, () => no(new Error(`não abriu ${url}`))));
 }
 async function setArt(url, label) {
+  state.cardSource = null;                       // imagem avulsa; uma versão do Scryfall marca de onde veio (usePrint)
   try {
     const t = await tex(url);
     if (U.tArt.value !== blank) U.tArt.value.dispose();
@@ -681,7 +682,20 @@ async function usePrint() {
   const faces = (c.card_faces ?? []).filter((f) => f.image_uris).length;
   const face = $("#cardFace"); face.hidden = faces < 2; if (faces < 2) face.value = "0";
   const f = Number(face.value) || 0;
-  await setArt(imgOf(c, f), `${(f ? c.card_faces?.[f]?.printed_name ?? c.card_faces?.[f]?.name : ptName(c)?.split(" // ")[0]) || c.name.split(" // ")[f] || c.name} (${String(c.set).toUpperCase()} ${c.collector_number})`);
+  const ok = await setArt(imgOf(c, f), `${(f ? c.card_faces?.[f]?.printed_name ?? c.card_faces?.[f]?.name : ptName(c)?.split(" // ")[0]) || c.name.split(" // ")[f] || c.name} (${String(c.set).toUpperCase()} ${c.collector_number})`);
+  if (ok) state.cardSource = { print: c, face: f };
+}
+/** A versão do Scryfall que está na tela (para quem abriu o Studio saber qual arte foi escolhida aqui); null = imagem avulsa */
+function cardSource() {
+  const src = state.cardSource;
+  if (!src) return null;
+  const c = src.print, uris = c.card_faces?.[src.face]?.image_uris ?? c.image_uris ?? c.card_faces?.[0]?.image_uris ?? {};
+  return {
+    id: c.id, name: c.name, set: c.set, setName: c.set_name, number: c.collector_number, released: c.released_at, lang: c.lang,
+    imageUrl: uris.large ?? uris.png, artCropUrl: uris.art_crop, artist: c.card_faces?.[src.face]?.artist ?? c.artist,
+    finishes: c.finishes ?? [], prices: c.prices ?? {}, borderColor: c.border_color, fullArt: !!c.full_art,
+    effects: [...(c.frame_effects ?? []), ...(c.promo_types ?? [])], label: printLabel(c),
+  };
 }
 $("#cardPrint").onchange = usePrint;
 $("#cardFace").onchange = usePrint;
@@ -1023,10 +1037,10 @@ function renderShots(box) {
   // aberto por outra ferramenta com um endereço de retorno (o painel do Combalista): manda as tomadas de volta
   if (RETORNO) {
     const send = document.createElement("button"); send.className = "primary"; send.textContent = "Enviar look e tomadas de volta";
-    send.title = "Grava de onde o Studio foi aberto o estado inteiro desta tela: o look (material, luzes, tinta, máscara) e as tomadas";
+    send.title = "Grava de onde o Studio foi aberto o estado inteiro desta tela: o look (material, luzes, tinta, máscara), as tomadas, a versão da carta escolhida aqui e o fundo";
     send.onclick = async () => {
       try {
-        const r = await fetch(RETORNO, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ shots: state.shots, look: currentPreset()?.name ?? null, state: snapshot() }) });
+        const r = await fetch(RETORNO, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ shots: state.shots, look: currentPreset()?.name ?? null, state: snapshot(), carta: cardSource(), fundo: $("#expBg").value }) });
         const j = await r.json().catch(() => ({}));
         if (!r.ok || j.error) throw new Error(j.error || `HTTP ${r.status}`);
         status(j.message || "tomadas enviadas");
@@ -1214,6 +1228,7 @@ async function runFromUrl(q) {
     if (q.has("motion") || q.has("amp") || q.has("period")) setMotion(q.get("motion") ?? state.motion, { amplitude: q.get("amp"), period: q.get("period"), tiltX: q.get("tiltx"), tiltY: q.get("tilty") });
     if (q.has("zoom")) { state.own["view.zoom"] = Number(q.get("zoom")); frameCamera(); }
     if (q.has("size")) setSize(q.get("size"));
+    if (q.has("bg")) $("#expBg").value = q.get("bg") === "transparent" ? "transparent" : "bg";
     if (q.has("shots")) out.shotsDuration = setShots(q.get("shots"));
     if (q.has("back")) await setBack(q.get("back"));
     if (q.has("card") || q.has("image")) out.card = await loadCard({ name: q.get("card"), set: q.get("set"), number: q.get("number"), lang: q.get("lang"), face: q.get("face"), image: q.get("image") });
